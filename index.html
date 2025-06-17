@@ -38,9 +38,17 @@
             border: 1px solid gray;
             background-color: rgba(255,255,255,.5);
             transition: all 0.2s;
+            min-width: 0.5em;
         }
         #toggler:hover {
             background-color: rgba(255,255,255,.9);
+        }
+        .controls > #toggler::before {
+            content: '▲';
+            display: inline-block;
+        }
+        .controls.hidden > #toggler::before {
+            content: '▼';
         }
         fieldset {
             border-radius: 5px;
@@ -164,7 +172,7 @@
             <option value="9">9:16</option>
         </select></label>
     </fieldset>
-    <button id="toggler">☰</button>
+    <button id="toggler" title="toggle panel"></button>
 </div>
 <div id="gallery"></div>
 </div>
