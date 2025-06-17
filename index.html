@@ -180,7 +180,7 @@
 <script type="module">
     import DynamicVideoLayout from './dynamic-video-layout.js';
     import { throttle } from './throttle.js';
-    import { generateRandomWordLike } from './wordgen.js';
+    import { generateRandomWordLike, createPRNG } from './wordgen.js';
     const layout = new DynamicVideoLayout();
     window.layout = layout;
 
@@ -260,12 +260,16 @@
     const resizeObserver = new ResizeObserver(updateGallery);
     resizeObserver.observe(galleryElement);
 
+    const seed = Date.now();
+    console.log(`seed: ${seed}`);
+    const prng = createPRNG(seed);
+
     function addTile() {
         const arSelected = arSelect.value || 'n';
         const aspectRatio = ARs[arSelected];
         const tileDescriptor = {
             // id: Math.random().toString(32).slice(-7),
-            id: generateRandomWordLike(),
+            id: generateRandomWordLike(prng),
             aspectRatio,
             canBeCropped: true,
             hasVideo: arSelect.value !== 'n',
