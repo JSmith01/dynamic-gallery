@@ -265,15 +265,25 @@
     const prng = createPRNG(seed);
     let galId = 1;
 
+    const names = [
+        'James', 'Paul', 'Kate', 'Winston',
+        'Diana', 'Eve', 'Frank', 'Linda',
+        'Hank', 'Lara', 'John', 'Mary',
+        'Leo', 'Nina', 'Oscar', 'Peter'
+    ];
+
     function addTile() {
         const arSelected = arSelect.value || 'n';
         const aspectRatio = ARs[arSelected];
+        const tileId = galId;
+        const hasVideo = arSelected !== 'n';
+        const hasGalImage = hasVideo && tileId <= 16;
         const tileDescriptor = {
             // id: Math.random().toString(32).slice(-7),
-            id: generateRandomWordLike(prng),
+            id: hasGalImage ? names[tileId - 1] : generateRandomWordLike(prng),
             aspectRatio,
             canBeCropped: true,
-            hasVideo: arSelect.value !== 'n',
+            hasVideo,
             isFocused: false
         }
         tiles.push(tileDescriptor);
@@ -281,9 +291,9 @@
         tile.id = tileDescriptor.id;
         tile.classList.add('tile');
         tile.classList.add('fadein');
-        if (tileDescriptor.hasVideo) {
-            const placeholderImage = (+galId) <= 16 
-            ? `gal/${galId.toString().padStart(2, '0')}.jpg`
+        if (hasVideo) {
+            const placeholderImage = tileId <= 16 
+            ? `gal/${tileId.toString().padStart(2, '0')}.jpg`
             : `https://picsum.photos/seed/${tileDescriptor.id}/${dims[arSelected][0]}/${dims[arSelected][1]}`;
             galId++;
             tile.style.backgroundImage = `url(${placeholderImage})`;
