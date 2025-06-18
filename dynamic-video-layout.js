@@ -1,7 +1,6 @@
-export const GAP = 8; // Gap between tiles in pixels
+export const GAP = 8;
 export const FOCUS_CROP_REDUCTION = 0.7;
-// export const MIN_ASPECT_RATIO_DEFAULT = 9/16; // 0.5625
-export const MIN_ASPECT_RATIO_DEFAULT = 3 / 4; // 0.75 - borrowed from GMeet
+export const MIN_ASPECT_RATIO_DEFAULT = 3 / 4;
 export default class DynamicVideoLayout {
     minAspectRatio = MIN_ASPECT_RATIO_DEFAULT;
     getTileMinRatio(tile) {
@@ -19,10 +18,6 @@ export default class DynamicVideoLayout {
         const sumMaxRatio = tiles.reduce((acc, tile) => acc + tile.aspectRatio, 0);
         const minRatios = tiles.map(tile => this.getTileMinRatio(tile));
         const sumMinRatio = minRatios.reduce((acc, ratio) => acc + ratio, 0);
-        // 3 cases:
-        //    1) viewRatio <= sumMinRatio => cropCoefficient = 1, layoutAr = sumMinRatio, height = width / sumMinRatio
-        //    2) sumMinRatio < viewRatio < sumMaxRatio => calculate cropCoefficient using (viewRatio - sumMinRatio) / (sumMaxRatio - sumMinRatio), height = width / viewRatio
-        //    3) sumMaxRatio <= viewRatio => cropCoefficient = 0 height limited, outputHeight = h
         if (viewRatio <= sumMinRatio) {
             return { cropCoefficient: 1, height: width / sumMinRatio, minRatios };
         }
@@ -71,35 +66,19 @@ export default class DynamicVideoLayout {
             sumMinRatio += minTileRatios[i];
             sumActualRatio += tiles[i].aspectRatio;
         }
-        // Priority 1: Penalty if minRatio sum exceeds rowAspectRatio
-        // const constraint1Penalty = sumMinRatio > rowAspectRatio ? Math.pow(sumMinRatio - rowAspectRatio, 2) * 1000 : 0;
         const constraint1Penalty = 0;
-        // Priority 2: Minimize squared difference from optimal
         const constraint2Cost = Math.pow(rowAspectRatio - sumActualRatio, 2);
         return constraint1Penalty + constraint2Cost;
     }
     distributeTilesToRows(tiles, rows, rowAspectRatio) {
-        // simple case that cannot be optimized
         if (tiles.length === rows) {
             return tiles.map(tile => [tile]);
         }
         const minTileRatios = tiles.map(tile => this.getTileMinRatio(tile));
-        // Has to keep the original order of the tiles.
-        // For example, for tiles A, B, C and two rows possible distributions
-        // could only be [[A,B],[C]], or [[A], [B, C]].
-        // Tile swaps like [[A, C], [B]] are not allowed.
-        // Each row shall have at least one tile
-        // (effectively for tiles A ... K that A is always in the row N0, and K is in row N(rows - 1)
-        // Optimization goals (in descending priority):
-        //   1. keep sums for minTileRatios for all rows below rowAspectRatio
-        //   2. minimize the sum of (rowAspectRatio - sum(tile.aspectRatio)) ^ 2
-        // Dynamic programming approach to find optimal distribution
         const n = tiles.length;
         const memo = new Map();
-        // Recursive function with memoization
         const findOptimalDistribution = (tileIndex, remainingRows) => {
             if (remainingRows === 1) {
-                // All remaining tiles go to the last row
                 const cost = this.calculateRowCost(tiles, minTileRatios, rowAspectRatio, tileIndex, n - 1);
                 return { cost, distribution: [n - tileIndex] };
             }
@@ -112,9 +91,6 @@ export default class DynamicVideoLayout {
             }
             let bestCost = Infinity;
             let bestDistribution = [];
-            // Try different numbers of tiles for the current row
-            // Minimum 1 tile, maximum (n - tileIndex - remainingRows + 1) tiles
-            // (to ensure remaining rows have at least 1 tile each)
             const maxTilesInCurrentRow = n - tileIndex - remainingRows + 1;
             for (let tilesInCurrentRow = 1; tilesInCurrentRow <= maxTilesInCurrentRow; tilesInCurrentRow++) {
                 const currentRowCost = this.calculateRowCost(tiles, minTileRatios, rowAspectRatio, tileIndex, tileIndex + tilesInCurrentRow - 1);
@@ -130,7 +106,6 @@ export default class DynamicVideoLayout {
             return result;
         };
         const { distribution } = findOptimalDistribution(0, rows);
-        // Convert distribution to actual tile arrays
         const result = [];
         let currentIndex = 0;
         for (const rowSize of distribution) {
@@ -146,13 +121,11 @@ export default class DynamicVideoLayout {
     calculateMultiRowLayout(tiles, w, h, rows = 1) {
         if (rows === 1)
             return this.calculateLayout(tiles, w, h);
-        // adjust rows to match the number of tiles
         if (tiles.length < rows) {
             rows = tiles.length;
         }
         const usableHeight = h - GAP * (rows - 1);
         const rowHeight = usableHeight / rows;
-        // assumes that the viewport is divided into `rows` equal parts.
         const rowAspectRatio = w / rowHeight;
         const distributedTiles = this.distributeTilesToRows(tiles, rows, rowAspectRatio);
         const rowLayouts = distributedTiles.map(rowTiles => this.calculateLayout(rowTiles, w, rowHeight));
@@ -172,8 +145,6 @@ export default class DynamicVideoLayout {
             viewportUse: newRowLayouts.reduce((sum, layout) => sum + layout.viewportUse, 0) * minRowHeight / h,
         };
     }
-    // the expensive one, costs ~2ms on M1 Pro for 16 tiles, and up to 6-8ms for 25 tiles
-    // TODO optimize to slightly prioritize more non-cropped layouts
     findOptimalLayout(tiles, w, h) {
         if (tiles.length === 1)
             return this.calculateLayout(tiles, w, h);
@@ -187,37 +158,70 @@ export default class DynamicVideoLayout {
             }
         }
         if (tiles.length <= 5) {
-            // already have one layout as optimal
             return firstAttempts[bestIndex];
         }
-        // binary search for the "rows" with the best viewportUse
         let left = 6;
         let right = tiles.length;
-        let bestBinarySearchLayout = this.calculateMultiRowLayout(tiles, w, h, 6); // Start with the 6th layout
+        let bestBinarySearchLayout = this.calculateMultiRowLayout(tiles, w, h, 6);
         while (left <= right) {
             const mid = Math.floor((left + right) / 2);
             const midLayout = this.calculateMultiRowLayout(tiles, w, h, mid);
-            // Check if we found a better layout
             if (midLayout.viewportUse > bestBinarySearchLayout.viewportUse) {
                 bestBinarySearchLayout = midLayout;
             }
-            // Check layouts to the left and right to determine search direction
             const leftLayout = this.calculateMultiRowLayout(tiles, w, h, mid - 1);
             const rightLayout = this.calculateMultiRowLayout(tiles, w, h, mid + 1);
             if (leftLayout.viewportUse > midLayout.viewportUse) {
-                // If left is better, search left
                 right = mid - 1;
             }
             else if (rightLayout.viewportUse > midLayout.viewportUse) {
-                // If right is better, search right
                 left = mid + 1;
             }
             else {
-                // We found a local maximum
                 break;
             }
         }
-        // Return the layout with the highest viewportUse (either from first 5 or from binary search)
         return bestBinarySearchLayout.viewportUse > bestUse ? bestBinarySearchLayout : firstAttempts[bestIndex];
+    }
+    halfHeightNoVideo(tiles, w, h) {
+        const videoTiles = tiles.filter(tile => tile.hasVideo);
+        const noVideoTiles = tiles.filter(tile => !tile.hasVideo);
+        if (videoTiles.length === 0 || noVideoTiles.length === 0)
+            return this.findOptimalLayout(tiles, w, h);
+        if (noVideoTiles.length % 2 === 1) {
+            videoTiles.push(noVideoTiles.shift());
+        }
+        const pseudoTilesCount = noVideoTiles.length / 2;
+        if (pseudoTilesCount > 0) {
+            videoTiles.push(...Array.from({ length: pseudoTilesCount }, (_, i) => ({
+                id: noVideoTiles[i * 2].id,
+                aspectRatio: noVideoTiles[i * 2].aspectRatio,
+                canBeCropped: true,
+                isFocused: false,
+                hasVideo: false,
+            })));
+        }
+        const optimalLayout = this.findOptimalLayout(videoTiles, w, h);
+        if (pseudoTilesCount === 0)
+            return optimalLayout;
+        const layoutPseudoTiles = optimalLayout.tiles.splice(-pseudoTilesCount);
+        const noVideoLayout = [];
+        for (let i = 0; i < pseudoTilesCount; i++) {
+            const tileLayout = layoutPseudoTiles[i];
+            const height = (tileLayout.height - GAP) / 2;
+            noVideoLayout.push({
+                ...tileLayout,
+                id: noVideoTiles[i * 2].id,
+                height
+            });
+            noVideoLayout.push({
+                ...tileLayout,
+                id: noVideoTiles[i * 2 + 1].id,
+                height,
+                y: tileLayout.y + height + GAP,
+            });
+        }
+        optimalLayout.tiles.push(...noVideoLayout);
+        return optimalLayout;
     }
 }

@@ -1,9 +1,3 @@
-/**
- * throttling enforces a maximum number of times a function can be called over time
- *
- * @param func a function
- * @param limit time in ms
- */
 export const throttle = (func, limit) => {
     let lastFunc;
     let lastRan = 0;

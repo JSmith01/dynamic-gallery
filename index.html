@@ -238,7 +238,7 @@
 
         const ts = performance.now();
         const layoutResult = autorows.checked
-            ? layout.findOptimalLayout(tiles, width, height)
+            ? layout.halfHeightNoVideo(tiles, width, height)
             : layout.calculateMultiRowLayout(tiles, width, height, Number(rows.value) || 1);
         const tse = performance.now();
 
@@ -292,7 +292,7 @@
         tile.classList.add('tile');
         tile.classList.add('fadein');
         if (hasVideo) {
-            const placeholderImage = tileId <= 16 
+            const placeholderImage = tileId <= 16
             ? `gal/${tileId.toString().padStart(2, '0')}.jpg`
             : `https://picsum.photos/seed/${tileDescriptor.id}/${dims[arSelected][0]}/${dims[arSelected][1]}`;
             galId++;
