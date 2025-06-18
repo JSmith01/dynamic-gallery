@@ -279,7 +279,6 @@
     const seed = Date.now();
     console.log(`seed: ${seed}`);
     const prng = createPRNG(seed);
-    let galId = 1;
 
     const names = [
         'James', 'Paul', 'Kate', 'Winston',
@@ -288,15 +287,16 @@
         'Leo', 'Nina', 'Oscar', 'Peter'
     ];
 
+    const freeNames = new Set(names);
+    const usedNames = new Set();
+
     function addTile() {
         const arSelected = arSelect.value || 'n';
         const aspectRatio = ARs[arSelected];
-        const tileId = galId;
         const hasVideo = arSelected !== 'n';
-        const hasGalImage = hasVideo && tileId <= 16;
+        const hasGalImage = hasVideo && freeNames.size > 0;
         const tileDescriptor = {
             // id: Math.random().toString(32).slice(-7),
-            id: hasGalImage ? names[tileId - 1] : generateRandomWordLike(prng),
             aspectRatio,
             canBeCropped: true,
             hasVideo,
@@ -304,19 +304,28 @@
         }
         tiles.push(tileDescriptor);
         const tile = document.createElement('div');
+        if (hasGalImage) {
+            const name = freeNames.values().next().value;
+            tileDescriptor.id = name;
+            freeNames.delete(name);
+            const imageId = names.indexOf(name) + 1;
+            tile.style.backgroundImage = `url(gal/${imageId.toString().padStart(2, '0')}.jpg)`;
+        } else {
+            do {
+                tileDescriptor.id = generateRandomWordLike(prng);
+            } while (usedNames.has(tileDescriptor.id));
+            usedNames.add(tileDescriptor.id);
+            if (hasVideo) {
+                tile.style.backgroundImage = `url(https://picsum.photos/seed/${tileDescriptor.id}/${dims[arSelected][0]}/${dims[arSelected][1]})`;
+            } else {
+                tile.classList.add('novideo');
+            }
+        }
+
         tile.id = tileDescriptor.id;
         tile.classList.add('tile');
         tile.classList.add('fadein');
         tile.dataset.avatar = tileDescriptor.id.slice(0, 2).toLocaleUpperCase();
-        if (hasVideo) {
-            const placeholderImage = tileId <= 16
-            ? `gal/${tileId.toString().padStart(2, '0')}.jpg`
-            : `https://picsum.photos/seed/${tileDescriptor.id}/${dims[arSelected][0]}/${dims[arSelected][1]}`;
-            galId++;
-            tile.style.backgroundImage = `url(${placeholderImage})`;
-        } else {
-            tile.classList.add('novideo');
-        }
         const idSpan = document.createElement('span');
         idSpan.textContent = tileDescriptor.id;
         tile.append(idSpan);
@@ -328,6 +337,11 @@
             if (tiles.length <= 1) return;
 
             tiles.splice(tiles.indexOf(tileDescriptor), 1);
+            if (names.includes(tileDescriptor.id)) {
+                freeNames.add(tileDescriptor.id);
+            } else {
+                usedNames.delete(tileDescriptor.id);
+            }
             tile.remove();
             updateGallery();
         });
