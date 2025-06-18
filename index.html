@@ -171,6 +171,16 @@
             <option value="3" selected>3:4</option>
             <option value="9">9:16</option>
         </select></label>
+        <label>
+            Split no-video by:
+            <select id="splitby">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4" selected>4</option>
+                <option value="5">5</option>
+            </select>
+        </label>
     </fieldset>
     <button id="toggler" title="toggle panel"></button>
 </div>
@@ -178,7 +188,7 @@
 </div>
 
 <script type="module">
-    import DynamicVideoLayout from './dynamic-video-layout.js';
+    import DynamicVideoLayout, { MIN_NO_VIDEO_AR } from './dynamic-video-layout.js';
     import { throttle } from './throttle.js';
     import { generateRandomWordLike, createPRNG } from './wordgen.js';
     const layout = new DynamicVideoLayout();
@@ -202,7 +212,7 @@
         9: 9/16,
         4: 4/3,
         3: 3/4,
-        n: 9/16,
+        n: MIN_NO_VIDEO_AR,
     };
 
     const dims = {
@@ -225,16 +235,22 @@
     const minar = document.getElementById('minar');
     const toggler = document.getElementById('toggler');
     const controls = document.getElementById('controls');
+    const splitby = document.getElementById('splitby');
 
     addButton.addEventListener('click', addTile);
 
     function rawUpdateGallery() {
         const { width, height } = galleryElement.getBoundingClientRect();
         const minTileAr = ARs[minar.value];
+        const noVideoSplit = Number(splitby.value);
 
-        console.log('update', tiles, width, height, speakerId, `${findClosestPrintableAr(minTileAr)} (${minTileAr})`);
+        console.log(
+            'update', tiles, width, height, speakerId, `${findClosestPrintableAr(minTileAr)} (${minTileAr})`,
+            `Split no-video by ${noVideoSplit}`
+        );
 
         layout.minAspectRatio = minTileAr;
+        layout.noVideoSplit = noVideoSplit;
 
         const ts = performance.now();
         const layoutResult = autorows.checked
@@ -344,6 +360,8 @@
 
     rows.onchange = updateGallery;
     minar.onchange = updateGallery;
+    splitby.onchange = updateGallery;
+    document.onresize = updateGallery;
     toggler.onclick = () => controls.classList.toggle('hidden');
     rows.disabled = autorows.checked;
     autorows.onchange = () => {
