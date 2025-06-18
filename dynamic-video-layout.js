@@ -1,6 +1,8 @@
 export const GAP = 8;
 export const FOCUS_CROP_REDUCTION = 0.7;
 export const MIN_ASPECT_RATIO_DEFAULT = 3 / 4;
+export const NOVIDEO_SPLIT = 4;
+export const NO_VIDEO_USE_K = 0.3;
 export default class DynamicVideoLayout {
     minAspectRatio = MIN_ASPECT_RATIO_DEFAULT;
     getTileMinRatio(tile) {
@@ -34,6 +36,7 @@ export default class DynamicVideoLayout {
         const y = (h - height) / 2;
         let offsetX = 0;
         const outputTiles = [];
+        let usedPixels = 0;
         for (let i = 0; i < tiles.length; i++) {
             const tile = tiles[i];
             const outputTile = {
@@ -50,6 +53,7 @@ export default class DynamicVideoLayout {
             }
             offsetX += outputTile.width + GAP;
             outputTiles.push(outputTile);
+            usedPixels += outputTile.width * height * (tile.hasVideo ? 1 : NO_VIDEO_USE_K);
         }
         offsetX -= GAP;
         if (offsetX < w - 1) {
@@ -188,14 +192,14 @@ export default class DynamicVideoLayout {
         const noVideoTiles = tiles.filter(tile => !tile.hasVideo);
         if (videoTiles.length === 0 || noVideoTiles.length === 0)
             return this.findOptimalLayout(tiles, w, h);
-        if (noVideoTiles.length % 2 === 1) {
+        if (noVideoTiles.length % NOVIDEO_SPLIT === 1) {
             videoTiles.push(noVideoTiles.shift());
         }
-        const pseudoTilesCount = noVideoTiles.length / 2;
+        const pseudoTilesCount = Math.ceil(noVideoTiles.length / NOVIDEO_SPLIT);
         if (pseudoTilesCount > 0) {
             videoTiles.push(...Array.from({ length: pseudoTilesCount }, (_, i) => ({
-                id: noVideoTiles[i * 2].id,
-                aspectRatio: noVideoTiles[i * 2].aspectRatio,
+                id: noVideoTiles[i * NOVIDEO_SPLIT].id,
+                aspectRatio: noVideoTiles[i * NOVIDEO_SPLIT].aspectRatio,
                 canBeCropped: true,
                 isFocused: false,
                 hasVideo: false,
@@ -208,18 +212,18 @@ export default class DynamicVideoLayout {
         const noVideoLayout = [];
         for (let i = 0; i < pseudoTilesCount; i++) {
             const tileLayout = layoutPseudoTiles[i];
-            const height = (tileLayout.height - GAP) / 2;
-            noVideoLayout.push({
-                ...tileLayout,
-                id: noVideoTiles[i * 2].id,
-                height
-            });
-            noVideoLayout.push({
-                ...tileLayout,
-                id: noVideoTiles[i * 2 + 1].id,
-                height,
-                y: tileLayout.y + height + GAP,
-            });
+            const height = (tileLayout.height - GAP * (NOVIDEO_SPLIT - 1)) / NOVIDEO_SPLIT;
+            const tileOffset = i * NOVIDEO_SPLIT;
+            for (let j = 0; j < NOVIDEO_SPLIT; j++) {
+                if (!noVideoTiles[tileOffset + j])
+                    break;
+                noVideoLayout.push({
+                    ...tileLayout,
+                    id: noVideoTiles[tileOffset + j].id,
+                    height,
+                    y: tileLayout.y + (height + GAP) * j,
+                });
+            }
         }
         optimalLayout.tiles.push(...noVideoLayout);
         return optimalLayout;

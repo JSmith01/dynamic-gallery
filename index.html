@@ -128,7 +128,7 @@
             container-type: size;
         }
         .tile.novideo::before {
-            content: 'AU';
+            content: attr(data-avatar);
             display: block;
             position: absolute;
             left: 50%;
@@ -291,6 +291,7 @@
         tile.id = tileDescriptor.id;
         tile.classList.add('tile');
         tile.classList.add('fadein');
+        tile.dataset.avatar = tileDescriptor.id.slice(0, 2).toLocaleUpperCase();
         if (hasVideo) {
             const placeholderImage = tileId <= 16
             ? `gal/${tileId.toString().padStart(2, '0')}.jpg`
